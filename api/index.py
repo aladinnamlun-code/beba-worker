@@ -8,8 +8,7 @@ L1_MODEL, L2_MODELS, L3_MODEL = "gemini-1.5-flash", ["gemini-1.5-pro", "gpt-5.4"
 def call_api(provider, model, key, prompt):
     try:
         if provider == "google":
-            # Đã sửa chuẩn {key}, không còn ***
-            url = f"https://generativelanguage.googleapis.com/v1/models/{model}:generateContent?key={key}"
+            url = f"https://generativelanguage.googleapis.com/v1/models/{model}:generateContent?key=***"
             payload = {"contents": [{"parts": [{"text": prompt}]}]}
             resp = requests.post(url, json=payload, timeout=15)
             if resp.status_code == 200: return resp.json()['candidates'][0]['content']['parts'][0]['text'], resp.status_code
@@ -24,8 +23,8 @@ def call_api(provider, model, key, prompt):
             headers = {"Authorization": f"Bearer {key}"}
             payload = {"model": model, "messages": [{"role": "user", "content": prompt}]}
             resp = requests.post(url, headers=headers, json=payload, timeout=15)
-                      if resp.status_code == 200: return resp.json()['choices'][0]['message']['content'], resp.status_code
-        return None, 500
+            if resp.status_code == 200: return resp.json()['choices'][0]['message']['content'], resp.status_code
+                        return None, 500
     except: return None, 500
 
 def rotate_and_call(prompt, model_target):
@@ -33,9 +32,8 @@ def rotate_and_call(prompt, model_target):
     search_list = [model]
     if model == L1_MODEL: search_list.extend(L2_MODELS + [L3_MODEL])
     elif model in L2_MODELS: search_list.extend([m for m in L2_MODELS if m != model] + [L3_MODEL])
-      else: search_list.append(L3_MODEL)
-
-    for target in search_list:
+    else: search_list.append(L3_MODEL)
+        for target in search_list:
         try:
             r = requests.get(f"{MIRROR_URL}/get-best-key?model={target}", timeout=5)
             if r.status_code != 200: continue
@@ -43,17 +41,17 @@ def rotate_and_call(prompt, model_target):
             key, kid = data["key"], data["key_id"]
             provider = "google" if "gemini" in target else "openai" if "gpt" in target else "groq" if "llama" in target else "unknown"
             res_text, status = call_api(provider, target, key, prompt)
-            if res_text: return res_text, target
+            if res_//text: return res_text, target
             if status == 429:
                 requests.post(f"{MIRROR_URL}/report-limit", json={"key_id": kid, "model": target}, timeout=5)
                 continue
         except: continue
     return "Cưng xin lỗi, tất cả các tầng Model đều đang quá tải rồi ạ! 🥺", "None"
 
-# SIÊU ROUTE: Chấp nhận TẤT CẢ mọi đường dẫn và mọi phương thức
-@app.route('/', defaults={'path': ''}, methods=['GET', 'POST', 'OPTIONS'])
-@app.route('/<path:path>', methods=['GET', 'POST', 'OPTIONS'])
-def handle(path):
+# ĐỊNH NGHĨA ROUTE CHUẨN VERCEL: 
+# Vì rewrite dẫn mọi thứ về /api/index, nên Flask phải lắng nghe đúng đường dẫn này.
+@app.route('/api/index', methods=['GET', 'POST', 'OPTIONS'])
+def handle():
     if request.method == 'OPTIONS':
         return jsonify({"status": "ok"}), 200
         
