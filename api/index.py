@@ -4,6 +4,7 @@ import json
 import requests
 
 # --- Cấu hình từ Environment Variables ---
+# Lấy Key trực tiếp từ Env của Vercel
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 MODEL_NAME = "gemini-1.5-flash"
 
@@ -26,11 +27,14 @@ class handler(BaseHTTPRequestHandler):
             if not GOOGLE_API_KEY:
                 response_text = "Cưng xin lỗi, hiện tại Cloud Worker đang thiếu API Key ạ! 🥺"
             else:
+                # URL chuẩn để gọi Gemini API
                 url = f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL_NAME}:generateContent?key={GOOGLE_API_KEY}"
                 payload = {"contents": [{"parts": [{"text": prompt}]}]}
+                
                 resp = requests.post(url, json=payload, timeout=15)
                 if resp.status_code == 200:
                     res_data = resp.json()
+                    # Trích xuất nội dung trả về từ cấu trúc JSON của Gemini
                     response_text = res_data['candidates'][0]['content']['parts'][0]['text']
                 else:
                     response_text = f"Cưng gặp lỗi API ({resp.status_code}), Anh đợi Cưng xíu nhé! 🌸"
