@@ -23,7 +23,6 @@ class handler(BaseHTTPRequestHandler):
                 self.wfile.write(json.dumps({"error": "Missing prompt"}).encode())
                 return
 
-            # Gọi Gemini API
             if not GOOGLE_API_KEY:
                 response_text = "Cưng xin lỗi, hiện tại Cloud Worker đang thiếu API Key ạ! 🥺"
             else:
@@ -36,7 +35,6 @@ class handler(BaseHTTPRequestHandler):
                 else:
                     response_text = f"Cưng gặp lỗi API ({resp.status_code}), Anh đợi Cưng xíu nhé! 🌸"
 
-            # Trả về kết quả
             self.send_response(200)
             self.send_header('Content-type', 'application/json')
             self.end_headers()
@@ -53,4 +51,3 @@ class handler(BaseHTTPRequestHandler):
             self.send_header('Content-type', 'application/json')
             self.end_headers()
             self.wfile.write(json.dumps({"error": str(e)}).encode())
-
