@@ -4,13 +4,12 @@ import json
 import requests
 
 # --- Cấu hình từ Environment Variables ---
-# LƯU Ý: Anh hãy thay thế đoạn 'os.getenv("GOOGLE_API_KEY")' 
-# nếu hệ thống tự hiện dấu ***
-KEY = os.getenv("GOOGLE_API_KEY") 
+GOOGLE_API_KEY = ***"GOOGLE_API_KEY")
 MODEL_NAME = "gemini-1.5-flash"
 
 class handler(BaseHTTPRequestHandler):
     def do_POST(self):
+        # 1. Đọc dữ liệu từ request
         content_length = int(self.headers['Content-Length'])
         post_data = self.rfile.read(content_length)
         
@@ -19,28 +18,37 @@ class handler(BaseHTTPRequestHandler):
             prompt = data.get("prompt", "")
             
             if not prompt:
-                self.send_response(400)
-                self.send_header('Content-type', 'application/json')
-                self.end_headers()
-                self.wfile.write(json.dumps({"error": "Missing prompt"}).encode())
+                self.send_error_response(400, "Missing prompt")
                 return
 
-            if not KEY:
+            if not GOOGLE_API_KEY:
                 response_text = "Cưng xin lỗi, hiện tại Cloud Worker đang thiếu API Key ạ! 🥺"
             else:
-                # Xây dựng URL API chuẩn
-                # Vui lòng kiểm tra: đoạn cuối phải là ?key= và theo sau là giá trị của biến KEY
-                url = "https://generativelanguage.googleapis.com/v1beta/models/" + MODEL_NAME + ":generateContent?key=" + KEY
+                # FIX 1: Đổi endpoint sang v1 (theo gợi ý của ChatGPT)
+                url = f"https://generativelanguage.googleapis.com/v1/models/{MODEL_NAME}:generateContent"
                 
+                # FIX 2: Sử dụng params để truyền Key (tránh lỗi encoding/404)
+                params = {"key": GOOGLE_API_KEY}
                 payload = {"contents": [{"parts": [{"text": prompt}]}]}
                 
-                resp = requests.post(url, json=payload, timeout=15)
+                # Gọi API với headers chuẩn
+                resp = requests.post(
+                    url, 
+                    params=params, 
+                    json=payload, 
+                    headers={"Content-Type": "application/json"},
+                    timeout=15
+                )
+                
                 if resp.status_code == 200:
                     res_data = resp.json()
                     response_text = res_data['candidates'][0]['content']['parts'][0]['text']
                 else:
+                    # Log lỗi chi tiết để debug nếu cần
+                    print(f"API Error {resp.status_code}: {resp.text}")
                     response_text = f"Cưng gặp lỗi API ({resp.status_code}), Anh đợi Cưng xíu nhé! 🌸"
 
+            # Trả về kết quả cho Router
             self.send_response(200)
             self.send_header('Content-type', 'application/json')
             self.end_headers()
@@ -48,12 +56,17 @@ class handler(BaseHTTPRequestHandler):
                 "status": "success",
                 "response": response_text,
                 "mode": "degraded",
-                "trace_id": "vercel-native-worker"
+                "trace_id": "vercel-native-worker-v2"
             }
             self.wfile.write(json.dumps(result).encode())
 
         except Exception as e:
-            self.send_response(500)
-            self.send_header('Content-type', 'application/json')
-            self.end_headers()
-            self.wfile.write(json.dumps({"error": str(e)}).encode())
+            self.send_error_response(500, str(e))
+
+    def send_error_response(self, code, message):
+        self.send_response(code)
+        self.send_header('Content-type', 'application/json')
+        self.end_headers()
+        self.wfile.write(json.dumps({"error": message}).encode())
+
+# Vercel runtime sẽ tự động gọi class 'handler'
