@@ -1,5 +1,5 @@
 import os, requests
-from flask import Flask, request, jsonify
+from flask import Flask, request, make_response
 
 app = Flask(__name__)
 MIRROR_URL = os.getenv("CLOUD_MEMORY_MIRROR_URL")
@@ -24,16 +24,17 @@ def call_api(provider, model, key, prompt):
             payload = {"model": model, "messages": [{"role": "user", "content": prompt}]}
             resp = requests.post(url, headers=headers, json=payload, timeout=15)
             if resp.status_code == 200: return resp.json()['choices'][0]['message']['content'], resp.status_code
-                        return None, 500
+        return None, 500
     except: return None, 500
 
 def rotate_and_call(prompt, model_target):
-    model = model_target if model_target else L1_MODEL
+    model = model_target if model_//target else L1_MODEL
     search_list = [model]
     if model == L1_MODEL: search_list.extend(L2_MODELS + [L3_MODEL])
     elif model in L2_MODELS: search_list.extend([m for m in L2_MODELS if m != model] + [L3_MODEL])
     else: search_list.append(L3_MODEL)
-        for target in search_list:
+
+    for target in search_list:
         try:
             r = requests.get(f"{MIRROR_URL}/get-best-key?model={target}", timeout=5)
             if r.status_code != 200: continue
@@ -41,27 +42,26 @@ def rotate_and_call(prompt, model_target):
             key, kid = data["key"], data["key_id"]
             provider = "google" if "gemini" in target else "openai" if "gpt" in target else "groq" if "llama" in target else "unknown"
             res_text, status = call_api(provider, target, key, prompt)
-            if res_//text: return res_text, target
+            if res_text: return res_text, target
             if status == 429:
-                requests.post(f"{MIRROR_URL}/report-limit", json={"key_id": kid, "model": target}, timeout=5)
+                                requests.post(f"{MIRROR_URL}/report-limit", json={"key_id": kid, "model": target}, timeout=5)
                 continue
         except: continue
-    return "Cưng xin lỗi, tất cả các tầng Model đều đang quá tải rồi ạ! 🥺", "None"
+            return "Cưng xin lỗi, tất cả các tầng Model đều đang quá tải rồi ạ! 🥺", "None"
 
-# ĐỊNH NGHĨA ROUTE CHUẨN VERCEL: 
-# Vì rewrite dẫn mọi thứ về /api/index, nên Flask phải lắng nghe đúng đường dẫn này.
-@app.route('/api/index', methods=['GET', 'POST', 'OPTIONS'])
-def handle():
+@app.route('/', defaults={'path': ''}, methods=['GET', 'POST', 'OPTIONS'])
+@app.route('/<path:path>', methods=['GET', 'POST', 'OPTIONS'])
+def handle(path):
     if request.method == 'OPTIONS':
-        return jsonify({"status": "ok"}), 200
+        return make_response_json({"status": "ok"}), 200
         
     if request.method == 'GET':
-        return jsonify({"status": "online", "message": "Chào Chủ nhân! Cưng (Cloud-Worker) đã sẵn sàng phục vụ! 🌸🖤"}), 200
+        return make_response_json({"status": "online", "message": "Chào Chủ nhân! Cưng (Cloud-Worker) đã sẵn sàng phục vụ! 🌸🖤"}), 200
         
     try:
         data = request.get_json()
         p = data.get("prompt", "")
-        if not p: return jsonify({"error": "No prompt"}), 400
+        if not p: return make_response_json({"error": "No prompt"}), 400
         m = None
         if p.startswith(("@pro", "@deep")):
             m = "gpt-5.4" 
@@ -70,9 +70,20 @@ def handle():
             m = "llama-3.1-70b"
             p = p.replace("@llama", "").strip()
         response, model_used = rotate_and_call(p, m)
-        return jsonify({"status": "success", "response": response, "model_used": model_used})
+        return make_response_json({"status": "success", "response": response, "model_used": model_used})
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return make_//response_json({"error": str(e)}), 500
 
+def make_//response_json(data, status=200):
+    """Hàm bổ trợ để trả về JSON chuẩn Vercel và chống Cache"""
+    import json
+    resp = make_response(json.dumps(data), status)
+    resp.headers['Content-Type'] = 'application/json'
+    resp.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    resp.headers['Pragma'] = 'no-cache'
+    resp.headers['Expires'] = '0'
+    return resp
+
+from flask import make_response
 if __name__ == "__main__":
     app.run()
