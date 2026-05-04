@@ -36,23 +36,29 @@ def rotate_and_call(prompt, model_target):
 
     for target in search_list:
         try:
-                      r = requests.get(f"{MIRROR_URL}/get-best-key?model={target}", timeout=5)
+            r = requests.get(f"{MIRROR_URL}/get-best-key?model={target}", timeout=5)
             if r.status_code != 200: continue
             data = r.json()
             key, kid = data["key"], data["key_id"]
             provider = "google" if "gemini" in target else "openai" if "gpt" in target else "groq" if "llama" in target else "unknown"
-      res_text, status = call_api(provider, target, key, prompt)
+            res_text, status = call_api(provider, target, key, prompt)
             if res_text: return res_text, target
             if status == 429:
                 requests.post(f"{MIRROR_URL}/report-limit", json={"key_id": kid, "model": target}, timeout=5)
                 continue
         except: continue
     return "Cưng xin lỗi, tất cả các tầng Model đều đang quá tải rồi ạ! 🥺", "None"
-
-@app.route('/', methods=['GET', 'POST'])
-def handle():
+    # SỬA ĐỔI: Cho phép TẤT CẢ phương thức (GET, POST, OPTIONS) để trị dứt điểm lỗi 405
+@app.route('/', defaults={'path': ''}, methods=['GET', 'POST', 'OPTIONS'])
+@app.route('/<path:path>', methods=['GET', 'POST', 'OPTIONS'])
+def handle(path):
+    # Xử lý yêu cầu OPTIONS (Pre-flight request của trình duyệt/Vercel)
+    if request.method == 'OPTIONS':
+        return jsonify({"status": "ok"}), 200
+        
     if request.method == 'GET':
         return jsonify({"status": "online", "message": "Chào Chủ nhân! Cưng (Cloud-Worker) đã sẵn sàng phục vụ! 🌸🖤"}), 200
+        
     try:
         data = request.get_json()
         p = data.get("prompt", "")
@@ -69,5 +75,4 @@ def handle():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# Quan trọng nhất: Xuất biến app để Vercel nhận diện
-app = app 
+# Lưu ý: Không dùng app.run() ở đây vì Vercel tự quản lý
