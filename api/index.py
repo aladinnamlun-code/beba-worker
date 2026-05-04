@@ -27,7 +27,7 @@ def call_gemini_with_rotation(prompt, model):
     except Exception:
         return "Cưng không thể kết nối với Mirror để lấy Key ạ! 🌸"
 
-    # B. Gọi Gemini API
+    # B. Gọi Gemini API - Cưng đã sửa URL chuẩn rồi đây ạ!
     url = f"https://generativelanguage.googleapis.com/v1/models/{model}:generateContent?key={api_key}"
     payload = {"contents": [{"parts": [{"text": prompt}]}]}
     
@@ -40,7 +40,7 @@ def call_gemini_with_rotation(prompt, model):
             # Báo cáo limit lên Mirror để đưa key vào Cooldown
             requests.post(f"{MIRROR_URL}/report-limit", 
                           json={"key_id": key_id, "model": model}, timeout=5)
-            # Đệ quy: Thử lại với key khác (hoặc model khác)
+            # Đệ quy: Thử lại với key khác
             return call_gemini_with_rotation(prompt, model)
         else:
             return f"Cưng gặp lỗi API ({resp.status_code}) khi dùng model {model} ạ! 🌸"
