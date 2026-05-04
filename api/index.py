@@ -8,6 +8,7 @@ L1_MODEL, L2_MODELS, L3_MODEL = "gemini-1.5-flash", ["gemini-1.5-pro", "gpt-5.4"
 def call_api(provider, model, key, prompt):
     try:
         if provider == "google":
+            # Cưng dùng biến {key} để đảm bảo không bị lỗi ***
             url = f"https://generativelanguage.googleapis.com/v1/models/{model}:generateContent?key={key}"
             payload = {"contents": [{"parts": [{"text": prompt}]}]}
             resp = requests.post(url, json=payload, timeout=15)
@@ -39,17 +40,20 @@ def rotate_and_call(prompt, model_target):
             r = requests.get(f"{MIRROR_URL}/get-best-key?model={target}", timeout=5)
             if r.status_code != 200: continue
             data = r.json()
-                      key, kid = data["key"], data["key_id"]
+            key, kid = data["key"], data["key_id"]
             provider = "google" if "gemini" in target else "openai" if "gpt" in target else "groq" if "llama" in target else "unknown"
             res_text, status = call_api(provider, target, key, prompt)
             if res_text: return res_text, target
-              if status == 429:
+            if status == 429:
                 requests.post(f"{MIRROR_URL}/report-limit", json={"key_id": kid, "model": target}, timeout=5)
                 continue
         except: continue
-    return "Cưng xin lỗi, tất cả các tầng Model đều đang quá tải rồi ạ! 🥺", "None"
+                return "Cưng xin lỗi, tất cả các tầng Model đều đang quá tải rồi ạ! 🥺", "None"
 
+# ĐỊNH NGHĨA NHIỀU ĐƯỜNG DẪN ĐỂ TRÁNH 404 (Vercel-Proof)
 @app.route('/', methods=['GET', 'POST'])
+@app.route('/index', methods=['GET', 'POST'])
+@app.route('/api/index', methods=['GET', 'POST'])
 def handle():
     if request.method == 'GET':
         return jsonify({"status": "online", "message": "Chào Chủ nhân! Cưng (Cloud-Worker) đã sẵn sàng phục vụ! 🌸🖤"}), 200
