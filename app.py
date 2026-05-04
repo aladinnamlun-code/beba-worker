@@ -4,10 +4,10 @@ from flask import Flask, request, jsonify
 app = Flask(__name__)
 MIRROR_URL = os.getenv("CLOUD_MEMORY_MIRROR_URL")
 
-# Định nghĩa các Model theo tầng (Đã loại bỏ DeepSeek)
+# Định nghĩa các Model theo tầng
 L1_MODEL = "gemini-1.5-flash"
 L2_MODELS = ["gemini-1.5-pro", "gpt-5.4"]
-L3_MODEL = "llama-3.1-70b" # Dự kiến dùng Llama qua Groq
+L3_MODEL = "llama-3.1-70b" 
 
 def call_api(provider, model, key, prompt):
     """Hàm gọi API cho từng nhà cung cấp"""
@@ -27,7 +27,7 @@ def call_api(provider, model, key, prompt):
             if resp.status_code == 200:
                 return resp.json()['choices'][0]['message']['content'], resp.status_code
         
-        elif provider == "groq": # Thêm Provider Groq cho Llama 3.1
+        elif provider == "groq": 
             url = "https://api.groq.com/openai/v1/chat/completions"
             headers = {"Authorization": f"Bearer {key}"}
             payload = {"model": model, "messages": [{"role": "user", "content": prompt}]}
@@ -58,7 +58,6 @@ def rotate_and_call(prompt, model_target):
             data = r.json()
             key, kid = data["key"], data["key_id"]
             
-            # Xác định provider dựa trên model
             if "gemini" in target: provider = "google"
             elif "gpt" in target: provider = "openai"
             elif "llama" in target: provider = "groq"
@@ -68,8 +67,9 @@ def rotate_and_call(prompt, model_target):
             
             if res_text:
                 return res_text, target
-                            if status == 429:
-                                requests.post(f"{MIRROR_URL}/report-limit", json={"key_id": kid, "model": target}, timeout=5)
+            
+            if status == 429:
+                requests.post(f"{MIRROR_URL}/report-limit", json={"key_id": kid, "model": target}, timeout=5)
                 continue
         except:
             continue
@@ -81,12 +81,15 @@ def handle():
     try:
         data = request.get_json()
         p = data.get("prompt", "")
-        if not p: return jsonify({"error": "No prompt"}), 400
+                if not p: return jsonify({"error": "No prompt"}), 400
         
         m = None
         if p.startswith(("@pro", "@deep")):
             m = "gpt-5.4" 
             p = p.replace("@pro", "").replace("@deep", "").strip()
+        elif p.startswith("@llama"): # Thêm lệnh gọi đích danh Llama
+            m = "llama-3.1-70b"
+            p = p.replace("@llama", "").strip()
             
         response, model_used = rotate_and_call(p, m)
         return jsonify({"status": "success", "response": response, "model_used": model_used})
