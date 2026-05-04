@@ -4,8 +4,9 @@ import json
 import requests
 
 # --- Cấu hình từ Environment Variables ---
-# Lấy Key trực tiếp từ Env của Vercel
-GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+# LƯU Ý: Anh hãy thay thế đoạn 'os.getenv("GOOGLE_API_KEY")' 
+# nếu hệ thống tự hiện dấu ***
+KEY = os.getenv("GOOGLE_API_KEY") 
 MODEL_NAME = "gemini-1.5-flash"
 
 class handler(BaseHTTPRequestHandler):
@@ -24,18 +25,16 @@ class handler(BaseHTTPRequestHandler):
                 self.wfile.write(json.dumps({"error": "Missing prompt"}).encode())
                 return
 
-            if not GOOGLE_API_KEY:
+            if not KEY:
                 response_text = "Cưng xin lỗi, hiện tại Cloud Worker đang thiếu API Key ạ! 🥺"
             else:
-                # TẠO URL BẰNG CÁCH NỐI CHUỖI ĐỂ TRÁNH BỊ HỆ THỐNG CHE KEY
-                base_url = "https://generativelanguage.googleapis.com/v1beta/models/"
-                endpoint = f"{MODEL_NAME}:generateContent"
-                query = f"?key={GOOGLE_API_KEY}"
-                full_url = base_url + endpoint + query
+                # Xây dựng URL API chuẩn
+                # Vui lòng kiểm tra: đoạn cuối phải là ?key= và theo sau là giá trị của biến KEY
+                url = "https://generativelanguage.googleapis.com/v1beta/models/" + MODEL_NAME + ":generateContent?key=" + KEY
                 
                 payload = {"contents": [{"parts": [{"text": prompt}]}]}
                 
-                resp = requests.post(full_url, json=payload, timeout=15)
+                resp = requests.post(url, json=payload, timeout=15)
                 if resp.status_code == 200:
                     res_data = resp.json()
                     response_text = res_data['candidates'][0]['content']['parts'][0]['text']
